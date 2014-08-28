@@ -3,8 +3,17 @@
 ************   Inspired by https://github.com/ftlabs/fastclick   ************
 ===============================================================================*/
 app.initFastClicks = function () {
-    if (!app.support.touch) return;
+    if (!app.support.touch) {
+        $(document).on('mousedown', function(e) {
+            findActivableElement(e).addClass('active-state');
+        });
+        $(document).on('mouseup', function(e) {
+            $('.active-state').removeClass('active-state');
+        });
+        return;
+    }
     var touchStartX, touchStartY, touchStartTime, targetElement, trackClick, activeSelection, scrollParent, lastClickTime, isMoved;
+    var activableElement, handleActiveTimeout;
 
     function androidNeedsBlur(el) {
         var noBlur = ('button checkbox file image radio submit input textarea').split(' ');
@@ -90,12 +99,42 @@ app.initFastClicks = function () {
         if ((e.timeStamp - lastClickTime) < 200) {
             e.preventDefault();
         }
+        
+        // If it's inside a scrollable view, we don't trigger active-state yet,
+        // because it can be a scroll instead.
+        activableElement = findActivableElement(e);
+
+        if (!isInsideScrollableView(e)) {
+          addActive();
+        } else {
+          handleActiveTimeout = setTimeout(addActive, 80);
+        }
     }
+    //== Start of added functions
+    function findActivableElement(e) {
+        var target = $(e.target);
+        var parents = target.parents('a, button, label, span');
+        
+        return (parents.length > 0) ? parents : target;
+    }
+    function isInsideScrollableView() {
+        return activableElement.parents('.page-content, .list-block').length > 0;
+    }
+    function addActive() {
+        activableElement.addClass('active-state');
+    }
+    function removeActive() {
+        activableElement.removeClass('active-state');
+    }    
+    //== End of added functions
     function handleTouchMove(e) {
         if (!trackClick) return;
         trackClick = false;
         targetElement = null;
         isMoved = true;
+        
+        clearTimeout(handleActiveTimeout);
+        removeActive();
     }
     function handleTouchEnd(e) {
         if (!trackClick) {
@@ -130,6 +169,13 @@ app.initFastClicks = function () {
         if (targetNeedsFocus(targetElement)) {
             targetElement.focus();
         }
+        
+        // Add active-state here because in a very fast tap, the timeout didnt
+        // have the chance to execute. Removing active-state in a timeout gives 
+        // the chance to the animatior execute.
+        clearTimeout(handleActiveTimeout);
+        addActive();
+        setTimeout(removeActive, 10);
 
         e.preventDefault();
         var touch = e.changedTouches[0];

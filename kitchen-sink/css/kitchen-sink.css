@@ -171,7 +171,7 @@ i.ks-tabbar-icon-4 {
   border-bottom: 1px solid rgba(0, 0, 0, 0.15);
   cursor: pointer;
 }
-.custom-accordion .accordion-item-toggle:active {
+.custom-accordion .accordion-item-toggle.active-state {
   background: rgba(0, 0, 0, 0.15);
 }
 .custom-accordion .accordion-item-toggle span {
