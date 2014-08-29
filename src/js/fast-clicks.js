@@ -13,8 +13,8 @@ app.initFastClicks = function () {
         return;
     }
     var touchStartX, touchStartY, touchStartTime, targetElement, trackClick, activeSelection, scrollParent, lastClickTime, isMoved;
-    var activableElement, handleActiveTimeout;
-
+    var activableElement, activeTimeout;
+    
     function androidNeedsBlur(el) {
         var noBlur = ('button checkbox file image radio submit input textarea').split(' ');
         if (document.activeElement && el !== document.activeElement && document.activeElement !== document.body) {
@@ -58,7 +58,9 @@ app.initFastClicks = function () {
         return true;
     }
     function handleTouchStart(e) {
+        console.time('handleTouchStart');
         isMoved = false;
+        
         if (e.targetTouches.length > 1) {
             return true;
         }
@@ -100,48 +102,68 @@ app.initFastClicks = function () {
             e.preventDefault();
         }
         
-        // If it's inside a scrollable view, we don't trigger active-state yet,
-        // because it can be a scroll instead.
         activableElement = findActivableElement(e);
-
+        
+        // If it's inside a scrollable view, we don't trigger active-state yet,
+        // because it can be a scroll instead. Based on the link:
+        // http://labnote.beedesk.com/click-scroll-and-pseudo-active-on-mobile-webk
         if (!isInsideScrollableView(e)) {
           addActive();
         } else {
-          handleActiveTimeout = setTimeout(addActive, 80);
+          activeTimeout = setTimeout(addActive, 80);
         }
+        console.timeEnd('handleTouchStart');
     }
-    //== Start of added functions
     function findActivableElement(e) {
+        console.time('findActivableElement');
         var target = $(e.target);
         var parents = target.parents('a, button, label, span');
+        console.timeEnd('findActivableElement');
         
         return (parents.length > 0) ? parents : target;
     }
     function isInsideScrollableView() {
-        return activableElement.parents('.page-content, .list-block').length > 0;
+        console.time('isInsideScrollableView');
+        var pageContent = activableElement.parents('.page-content');
+        
+        if (pageContent.length == 0) {
+            return false;
+        }
+        
+        // This event handler covers the "tap to stop scrolling".
+        if (pageContent.prop('scrollHandlerSet') != 'yes') {
+            pageContent.on('scroll', function() {
+              clearTimeout(activeTimeout);
+            });
+            pageContent.prop('scrollHandlerSet', 'yes');
+        }
+        console.timeEnd('isInsideScrollableView');
+        
+        return true;
     }
     function addActive() {
         activableElement.addClass('active-state');
     }
-    function removeActive() {
+    function removeActive(el) {
         activableElement.removeClass('active-state');
     }    
-    //== End of added functions
     function handleTouchMove(e) {
         if (!trackClick) return;
         trackClick = false;
         targetElement = null;
         isMoved = true;
         
-        clearTimeout(handleActiveTimeout);
+        clearTimeout(activeTimeout);
         removeActive();
     }
     function handleTouchEnd(e) {
+        clearTimeout(activeTimeout);
+        
         if (!trackClick) {
             if (!activeSelection) e.preventDefault();
             return true;
         }
-
+        
         if (document.activeElement === e.target) {
             return true;
         }
@@ -164,19 +186,18 @@ app.initFastClicks = function () {
                 return false;
             }
         }
+        
+        // Add active-state here because, in a very fast tap, the timeout didn't
+        // have the chance to execute. Removing active-state in a timeout gives 
+        // the chance to the animation execute.
+        addActive();
+        setTimeout(removeActive, 0);
 
         // Trigger focus when required
         if (targetNeedsFocus(targetElement)) {
             targetElement.focus();
         }
         
-        // Add active-state here because in a very fast tap, the timeout didnt
-        // have the chance to execute. Removing active-state in a timeout gives 
-        // the chance to the animatior execute.
-        clearTimeout(handleActiveTimeout);
-        addActive();
-        setTimeout(removeActive, 10);
-
         e.preventDefault();
         var touch = e.changedTouches[0];
         var evt = document.createEvent('MouseEvents');
@@ -193,6 +214,7 @@ app.initFastClicks = function () {
         
     }
     function handleTouchCancel(e) {
+        console.log("cancel")
         trackClick = false;
         targetElement = null;
     }
