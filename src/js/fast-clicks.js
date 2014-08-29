@@ -124,7 +124,7 @@ app.initFastClicks = function () {
     }
     function isInsideScrollableView() {
         console.time('isInsideScrollableView');
-        var pageContent = activableElement.parents('.page-content');
+        var pageContent = activableElement.parents('.page-content, .panel');
         
         if (pageContent.length == 0) {
             return false;
